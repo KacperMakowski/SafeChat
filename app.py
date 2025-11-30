@@ -18,14 +18,11 @@ def index():
 
     return render_template('login.html')
 
-@socketio.on('connect')
-def handle_connect():
-    emit('update_history', history)
 
 @socketio.on('join')
-def handle_join(nickname):
-    users[request.sid] = {'nickname': nickname}
-    print(f"Dołączył: {nickname} (ID: {request.sid})")
+def handle_join(nickname, publicKey):
+    users[request.sid] = {'nickname': nickname, 'publicKey': publicKey}
+    print(f"Dołączył: {nickname} (ID: {request.sid}\n{publicKey})")
     emit('update_history', history)
 
 @socketio.on('message')

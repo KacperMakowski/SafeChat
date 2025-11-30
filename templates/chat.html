@@ -12,17 +12,28 @@
     let myNick = "";
     let myPrivateKey = null;
     let myPublicKey = null;
-    //TODO: Klucze są wygenerowane w funkcji, trzeba teraz przekazać klucz publiczny na serwer
-    socket.on('connect', function() {
+    var rsa = forge.pki.rsa;
+
+    rsa.generateKeyPair({bits: 2048, workers: 2}, function (err, keypair) {
+        if (err) {
+                    console.error("Błąd generowania kluczy:", err);
+                    return;
+                }
+
+        myPrivateKey = keypair.privateKey;
+        myPublicKey = keypair.publicKey;
+
         myNick = localStorage.getItem("savedNickname");
+        const publicKeyPEM = forge.pki.publicKeyToPem(myPublicKey);
 
         if (myNick) {
-            socket.emit('join', myNick);
+            socket.emit('join', myNick, publicKeyPEM);
             document.getElementById("greeting").innerHTML = "Cześć " + myNick + "!";
         } else {
             window.location.href = "/";
         }
     });
+
 
     socket.on('update_history', function(messages_history) {
 
@@ -53,15 +64,6 @@
         messageInput.value = "";
     }
 
-    function generateResKeys() {
-
-        var rsa = forge.pki.rsa;
-
-        rsa.generateKeyPair({bits: 2048, workers: 2}, function (err, keypair) {
-            myPrivateKey = keypair.privateKey;
-            myPublicKey = keypair.publicKey;
-        });
-    }
 
 </script>
 <h1 id="greeting"></h1>
