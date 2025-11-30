@@ -30,12 +30,10 @@ def handle_join(nickname):
 
 @socketio.on('message')
 def handle_message(message, current_nickname):
-    print(f"Serwer: Klient wysłał wiadomość: {message}")
-    history.append(message)
-    print(f"Historia wiadomości:\n{history}")
+    print(f"[Serwer] {current_nickname} wysłał wiadomość: {message}")
+    history.append({'nickname': current_nickname, 'message': message})
 
-    emit("update_history", history, current_nickname, broadcast=True)
-
+    emit("update_history", history, broadcast=True)
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)

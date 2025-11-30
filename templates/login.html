@@ -13,9 +13,6 @@
         const nicknameInput = document.getElementById("nickname-input");
         const nickname = nicknameInput.value;
 
-        socket.emit('savedNickname', nickname);
-        console.log('Nazwa użytkownika: '+ nickname);
-
         nicknameInput.value = "";
 
         localStorage.setItem("savedNickname", nickname);
@@ -26,7 +23,7 @@
 <h1>Podaj nazwę użytkownika</h1>
 <div id="input-area">
     <input type="text" id="nickname-input" placeholder="Wpisz wiadomość..." autocomplete="off">
-    <button onclick="login()">Wyślij</button>
+    <button onclick="login()">Połącz</button>
 </div>
 </body>
 </html>

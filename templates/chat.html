@@ -4,13 +4,15 @@
     <meta charset="UTF-8">
     <title>SafeChat</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/node-forge@1.0.0/dist/forge.min.js"></script>
 </head>
 <body>
 <script type="text/javascript" charset="utf-8">
     const socket = io();
     let myNick = "";
-
+    let myPrivateKey = null;
+    let myPublicKey = null;
+    //TODO: Klucze są wygenerowane w funkcji, trzeba teraz przekazać klucz publiczny na serwer
     socket.on('connect', function() {
         myNick = localStorage.getItem("savedNickname");
 
@@ -22,37 +24,52 @@
         }
     });
 
-    socket.on('update_history', function(data) {
+    socket.on('update_history', function(messages_history) {
 
         const listElement = document.getElementById("history");
         listElement.innerHTML = "";
 
-        data.forEach(function(msgText) {
+        messages_history.forEach(function(msg_obj) {
             const item = document.createElement("li");
-            item.innerText = msgText;
-            item.style.textAlign = "right";
+
+            item.innerText = msg_obj.nickname + ": " + msg_obj.message;
+
+            if (msg_obj.nickname === myNick) {
+                 item.style.textAlign = "right";
+            } else {
+                 item.style.textAlign = "left";
+            }
+
             listElement.appendChild(item);
         });
-
     })
 
     function sendMessage() {
         const messageInput = document.getElementById("message-input");
         const msg = messageInput.value;
 
-        document.getElementById("message-input").innerHTML = msg;
-        socket.emit('message', msg);
+        socket.emit('message', msg, myNick);
         console.log(msg);
         messageInput.value = "";
     }
+
+    function generateResKeys() {
+
+        var rsa = forge.pki.rsa;
+
+        rsa.generateKeyPair({bits: 2048, workers: 2}, function (err, keypair) {
+            myPrivateKey = keypair.privateKey;
+            myPublicKey = keypair.publicKey;
+        });
+    }
+
 </script>
 <h1 id="greeting"></h1>
 <div id="input-area">
     <input type="text" id="message-input" placeholder="Wpisz wiadomość..." autocomplete="off">
     <button onclick="sendMessage()">Wyślij</button>
 </div>
-
-Historia:
+<center><h1>Czat</h1></center>
 <div id="history">
 
 
