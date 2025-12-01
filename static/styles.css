@@ -1,0 +1,19 @@
+.my-msg{
+    text-align: left;
+}
+.other-msg{
+    text-align: right;
+}
+
+#history li:last-child {
+    color: red;
+    font-weight: bold;
+}
+#control-panel {
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-bottom: 2px solid #ddd;
+}
+.status-connected { color: green; font-weight: bold; }
+.status-disconnected { color: red; font-weight: bold; }

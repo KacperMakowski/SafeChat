@@ -5,14 +5,31 @@
     <title>SafeChat</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/node-forge@1.0.0/dist/forge.min.js"></script>
+    <link rel="stylesheet" href="../static/styles.css">
 </head>
 <body>
+<div id="control-panel">
+    Status: <span id="connection-status" class="status-ok">Połączono</span><br>
+    <button onclick="manualDisconnect()">Rozłącz</button>
+    <button onclick="manualReconnect()">Połącz</button>
+</div>
 <script type="text/javascript" charset="utf-8">
     const socket = io();
     let myNick = "";
     let myPrivateKey = null;
     let myPublicKey = null;
     var rsa = forge.pki.rsa;
+    let peerPublicKeys = {}
+    let roomAESKey = null;
+
+    function joinChat() {
+        if (!myNick || !myPublicKey) return;
+
+        const publicKeyPEM = forge.pki.publicKeyToPem(myPublicKey);
+        console.log("Logowanie do czatu (JOIN)...");
+        socket.emit('join', myNick, publicKeyPEM);
+        document.getElementById("greeting").innerHTML = "Cześć " + myNick + "!";
+    }
 
     rsa.generateKeyPair({bits: 2048, workers: 2}, function (err, keypair) {
         if (err) {
@@ -27,13 +44,25 @@
         const publicKeyPEM = forge.pki.publicKeyToPem(myPublicKey);
 
         if (myNick) {
-            socket.emit('join', myNick, publicKeyPEM);
-            document.getElementById("greeting").innerHTML = "Cześć " + myNick + "!";
+            joinChat();
         } else {
             window.location.href = "/";
         }
     });
 
+    // --- 3. AUTOMATYCZNY RECONNECT (Naprawa Twojego błędu) ---
+    socket.on('connect', function() {
+        // Aktualizacja statusu wizualnego
+        const statusSpan = document.getElementById("connection-status");
+        statusSpan.innerText = "Połączono";
+        statusSpan.className = "status-ok";
+
+        // Jeśli klucze już są (czyli to jest Reconnect), logujemy się ponownie!
+        if (myPublicKey && myNick) {
+            console.log("Wykryto ponowne połączenie - loguję automatycznie.");
+            joinChat();
+        }
+    });
 
     socket.on('update_history', function(messages_history) {
 
@@ -43,35 +72,166 @@
         messages_history.forEach(function(msg_obj) {
             const item = document.createElement("li");
 
-            item.innerText = msg_obj.nickname + ": " + msg_obj.message;
+            let displayText = msg_obj.message;
 
-            if (msg_obj.nickname === myNick) {
-                 item.style.textAlign = "right";
-            } else {
-                 item.style.textAlign = "left";
+            if (roomAESKey && msg_obj.message.includes(';')) {
+                try {
+                    const parts = msg_obj.message.split(';');
+                    const iv = forge.util.hexToBytes(parts[0]);
+                    const encrypted = forge.util.hexToBytes(parts[1]);
+
+                    const decipher = forge.cipher.createDecipher('AES-CBC', roomAESKey);
+                    decipher.start({iv: iv});
+                    decipher.update(forge.util.createBuffer(encrypted));
+                    const result = decipher.finish();
+
+                    if(result) {
+                        displayText = decipher.output.toString('utf8'); // Sukces!
+                    }
+                } catch (e) { }
             }
+
+            item.innerText = msg_obj.nickname + ": " + displayText;
+
+            if (msg_obj.nickname === myNick) item.className = "my-msg";
+            else item.className = "other-msg";
+
+            // Dodajemy klasę, która nada czerwony kolor
+            item.classList.add("last-message");
+
 
             listElement.appendChild(item);
         });
     })
 
+    socket.on('current_users', function(all_current_users) {
+        const usersContainer = document.getElementById('users');
+        usersContainer.innerHTML = 'Użytkownicy online:';
+
+        const otherNicks = Object.keys(all_current_users);
+
+        otherNicks.forEach(function(nickname) {
+            const div = document.createElement('div');
+            div.innerText = nickname;
+            usersContainer.appendChild(div);
+
+            const pem = all_current_users[nickname];
+            peerPublicKeys[nickname] = forge.pki.publicKeyFromPem(pem);
+        });
+
+        if (otherNicks.length === 0 && roomAESKey === null) {
+            console.log("Jestem pierwszy. Generuję klucz AES...");
+            roomAESKey = forge.random.getBytesSync(32);
+        } else {
+            console.log("Są inni. Czekam aż ktoś wyśle mi klucz AES...");
+        }
+
+    });
+
+    socket.on('user_joined', function(new_user_data) {
+            console.log("Dołączył: " + new_user_data.nickname);
+
+            // Dodaj do listy
+            const usersContainer = document.getElementById('users');
+            const div = document.createElement('div');
+            div.innerText = new_user_data.nickname;
+            usersContainer.appendChild(div);
+
+            // Zapisz jego klucz RSA
+            const newKey = forge.pki.publicKeyFromPem(new_user_data.publicKey);
+            peerPublicKeys[new_user_data.nickname] = newKey;
+
+            // JEŚLI MAM KLUCZ AES -> Szyfruję go i wysyłam nowemu
+            if (roomAESKey) {
+                console.log("Mam klucz AES. Wysyłam go do: " + new_user_data.nickname);
+                try {
+                    // Szyfrowanie klucza AES (32 bajty) używając RSA nowego użytkownika
+                    const encryptedAESKey = newKey.encrypt(roomAESKey);
+
+                    // Wysyłka tunelem
+                    socket.emit('send_key_to_user', {
+                        encrypted_key: encryptedAESKey,
+                        target_sid: new_user_data.sid
+                    });
+                } catch(e) { console.error(e); }
+            }
+        });
+
+    // --- 4. ODBIERANIE KLUCZA AES (Gdy wchodzę jako drugi) ---
+    socket.on('receive_key', function(data) {
+        console.log("Otrzymano zaszyfrowany klucz AES!");
+        try {
+            // Odszyfruj MOIM kluczem prywatnym RSA
+            const decryptedKey = myPrivateKey.decrypt(data.key);
+            roomAESKey = decryptedKey;
+            console.log("Klucz AES zapisany! Mogę szyfrować.");
+        } catch(e) {
+            console.error("Błąd deszyfrowania klucza AES:", e);
+        }
+    });
+
     function sendMessage() {
         const messageInput = document.getElementById("message-input");
         const msg = messageInput.value;
 
-        socket.emit('message', msg, myNick);
-        console.log(msg);
+        if (!roomAESKey) {
+            return;
+        }
+
+        // A. Losujemy IV
+        var iv = forge.random.getBytesSync(16);
+
+        // B. Szyfrujemy wspólnym kluczem roomAESKey
+        var cipher = forge.cipher.createCipher('AES-CBC', roomAESKey);
+        cipher.start({iv: iv});
+        cipher.update(forge.util.createBuffer(msg, 'utf8'));
+        cipher.finish();
+
+        // C. Pakujemy
+        var encryptedHex = cipher.output.toHex();
+        var ivHex = forge.util.bytesToHex(iv);
+        var payload = ivHex + ';' + encryptedHex;
+
+        // D. Wysyłamy
+        socket.emit('message', payload, myNick);
+        console.log("Wysłano (Szyfrogram): " + payload);
         messageInput.value = "";
+    }
+
+    socket.on('user_left', function(nickname) {
+        console.log("Użytkownik opuścił czat: " + nickname);
+        // Usuń klucz RSA tego użytkownika
+        delete peerPublicKeys[nickname];
+
+        // Usuń go z listy wizualnej (szukamy diva z tym nickiem)
+        const usersContainer = document.getElementById('users');
+        const divs = usersContainer.getElementsByTagName('div');
+        for (let i = 0; i < divs.length; i++) {
+            if (divs[i].innerText === nickname) {
+                usersContainer.removeChild(divs[i]);
+                break;
+            }
+        }
+    });
+
+    function manualDisconnect() {
+        socket.disconnect(); // Manualne zerwanie połączenia
+    }
+
+    function manualReconnect() {
+        socket.connect(); // Manualne wznowienie (wywoła event 'connect' powyżej)
     }
 
 
 </script>
 <h1 id="greeting"></h1>
+
 <div id="input-area">
     <input type="text" id="message-input" placeholder="Wpisz wiadomość..." autocomplete="off">
     <button onclick="sendMessage()">Wyślij</button>
 </div>
 <center><h1>Czat</h1></center>
+<center><div id="users">Użytkownicy</div></center>
 <div id="history">
 
 
