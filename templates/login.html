@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>SafeChat - Login</title>
+    <link rel="stylesheet" href="../static/styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -11,7 +12,7 @@
 
     // Funkcja wysyłająca do serwera nickname użytkownika oraz wykonująca przekierowanie do czatu
     function login() {
-        const nicknameInput = document.getElementById("nickname-input");
+        const nicknameInput = document.getElementById("nicknameInput");
         const nickname = nicknameInput.value;
 
         nicknameInput.value = "";
@@ -20,11 +21,19 @@
         window.location.href = "/chat";
     }
 
+
+
 </script>
-<h1>Podaj nazwę użytkownika</h1>
-<div id="input-area">
-    <input type="text" id="nickname-input" placeholder="Wpisz wiadomość..." autocomplete="off">
-    <button onclick="login()">Połącz</button>
+<div id="stars"></div>
+<div id="stars2"></div>
+<div id="stars3"></div>
+<div class="loginScreen">
+    <h1>SafeChat</h1>
+    <h2>by Kacper Makowski, Kamil Gumiński</h2>
+    <div id="inputArea">
+        <input type="text" id="nicknameInput" placeholder="Podaj nazwę użytkownika" autocomplete="off">
+        <button id="loginButton" onclick="login()">Połącz</button>
+    </div>
 </div>
 </body>
 </html>
