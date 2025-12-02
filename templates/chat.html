@@ -5,6 +5,7 @@
     <title>SafeChat</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/node-forge@1.0.0/dist/forge.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@joeattardi/emoji-button@4.6.4/dist/index.min.js"></script>
     <link rel="stylesheet" href="../static/styles.css">
 </head>
 <body>
@@ -12,6 +13,7 @@
     Status: <span id="connection-status" class="status-ok">Połączono</span><br>
     <button onclick="manualDisconnect()">Rozłącz</button>
     <button onclick="manualReconnect()">Połącz</button>
+    <button onclick="quitChat()" style="color: red; font-weight: bold; margin-left: 10px;">Wyjdź</button>
 </div>
 <script type="text/javascript" charset="utf-8">
     const socket = io();
@@ -22,15 +24,94 @@
     let peerPublicKeys = {}
     let roomAESKey = null;
 
+    // Funkcja umożliwiająca wysłanie klucza na serwer
     function joinChat() {
         if (!myNick || !myPublicKey) return;
-
+        // Konwersja klucza na tekst (w formacie PEM), inaczej nie można wysłać przez socket
         const publicKeyPEM = forge.pki.publicKeyToPem(myPublicKey);
-        console.log("Logowanie do czatu (JOIN)...");
         socket.emit('join', myNick, publicKeyPEM);
-        document.getElementById("greeting").innerHTML = "Cześć " + myNick + "!";
+        document.getElementById("greeting").innerText = myNick + " (Ty)";
     }
 
+    // Funkcja odpowiadająca za opuszczenie czatu. Czyści element z pamięci przeglądarki oraz wykonuje przekierowanie na stronę logowania
+    function quitChat() {
+        socket.disconnect();
+
+        roomAESKey = null;
+        myPrivateKey = null;
+        myPublicKey = null;
+        peerPublicKeys = {};
+
+        localStorage.removeItem("savedNickname");
+
+        window.location.href = "/";
+    }
+
+    // Funkcja odpowiadająca za wysyłanie zaszyfrowanych wiadomości
+    function sendMessage() {
+
+        //Pobiera wiadomość z pola tekstowego
+        const messageInput = document.getElementById("message-input");
+        const msg = messageInput.value;
+
+        //Jeżeli użytkownik wpisze komendę, to wykonuje inne czynności
+         if(msg.trim() === "/quit"){
+            quitChat()
+            return;
+        }
+        else if (msg.trim() === "/list"){
+            const item = document.getElementById('users')
+            item.style.backgroundColor = "red";
+            return
+        }
+        else if (msg.trim() === "/help"){
+            alert("Witaj w bezpiecznym czacie:\n1. Wiadomość nie może byc dłuższa niż 1024 znaki\n2. Historia czatu zapisuje się do maksymalnie 10 wiadomości");
+            return
+        }
+        else if (msg.length > 1024){
+            alert("Wiadomość nie może być dłuższa niż 1024 znaki!");
+            return;
+        }
+        if (!roomAESKey || msg.trim()==="") {
+            return;
+        }
+
+        // Losuje 16-bajtowy wektor inicjujący
+        var iv = forge.random.getBytesSync(16);
+
+        // Tworzy obiekt szyfrujący, używając wspólnego klucza AES
+        var cipher = forge.cipher.createCipher('AES-CBC', roomAESKey);
+        cipher.start({iv: iv});
+
+        // Konwertuje tekst na bajty
+        cipher.update(forge.util.createBuffer(msg, 'utf8'));
+        cipher.finish();
+
+        // Konwertuje na HEX
+        var encryptedHex = cipher.output.toHex();
+        var ivHex = forge.util.bytesToHex(iv);
+        var payload = ivHex + ';' + encryptedHex;
+
+        // Wysyłka zaszyfrowanej wiadomości do serwera
+        socket.emit('message', payload);
+        messageInput.value = "";
+}
+
+    // Funkcja wykonująca zerwanie połączenia (symuluje chwilowy brak połączenia z internetem)
+    function manualDisconnect() {
+        const statusSpan = document.getElementById("connection-status");
+        statusSpan.innerText = "Utracono połączenie";
+        socket.disconnect(); // Manualne zerwanie połączenia
+    }
+
+    // Funkcja przywracająca połączenie
+    function manualReconnect() {
+        const statusSpan = document.getElementById("connection-status");
+        statusSpan.innerText = "Połączono";
+        socket.connect(); // Manualne wznowienie (wywoła event 'connect' powyżej)
+    }
+
+    // Generuje klucze RSA (publiczny oraz prywatny)
     rsa.generateKeyPair({bits: 2048, workers: 2}, function (err, keypair) {
         if (err) {
                     console.error("Błąd generowania kluczy:", err);
@@ -41,7 +122,6 @@
         myPublicKey = keypair.publicKey;
 
         myNick = localStorage.getItem("savedNickname");
-        const publicKeyPEM = forge.pki.publicKeyToPem(myPublicKey);
 
         if (myNick) {
             joinChat();
@@ -50,53 +130,58 @@
         }
     });
 
-    // --- 3. AUTOMATYCZNY RECONNECT (Naprawa Twojego błędu) ---
+    // Po połączeniu przez użytkownika wyświetla aktualny status oraz wykonuje funkcje
     socket.on('connect', function() {
-        // Aktualizacja statusu wizualnego
         const statusSpan = document.getElementById("connection-status");
         statusSpan.innerText = "Połączono";
         statusSpan.className = "status-ok";
 
-        // Jeśli klucze już są (czyli to jest Reconnect), logujemy się ponownie!
         if (myPublicKey && myNick) {
-            console.log("Wykryto ponowne połączenie - loguję automatycznie.");
             joinChat();
         }
     });
 
+    // Odbiera tablicę (historię) zaszyfrowanych wiadomości od serwera, następnie ja deszyfruje
     socket.on('update_history', function(messages_history) {
 
         const listElement = document.getElementById("history");
         listElement.innerHTML = "";
 
+        // Wykonuje deszyfrowanie dla każdej wiadomości w historii
         messages_history.forEach(function(msg_obj) {
             const item = document.createElement("li");
 
             let displayText = msg_obj.message;
 
+            // Sprawdza czy dane zawierają prawidłowe informacje
             if (roomAESKey && msg_obj.message.includes(';')) {
                 try {
                     const parts = msg_obj.message.split(';');
                     const iv = forge.util.hexToBytes(parts[0]);
                     const encrypted = forge.util.hexToBytes(parts[1]);
 
+                    // Tworzy obiekt deszyfrujący używając wspólnego roomAESKey
                     const decipher = forge.cipher.createDecipher('AES-CBC', roomAESKey);
                     decipher.start({iv: iv});
                     decipher.update(forge.util.createBuffer(encrypted));
+
+                    // Deszyfrowanie
                     const result = decipher.finish();
 
                     if(result) {
-                        displayText = decipher.output.toString('utf8'); // Sukces!
+
+                        // Zamiana bajtów na tekst
+                        displayText = decipher.output.toString('utf8');
                     }
                 } catch (e) { }
             }
 
             item.innerText = msg_obj.nickname + ": " + displayText;
 
+            // Sprawdza, do kogo należy wiadomość i przypisuje odpowiednią klasę
             if (msg_obj.nickname === myNick) item.className = "my-msg";
             else item.className = "other-msg";
 
-            // Dodajemy klasę, która nada czerwony kolor
             item.classList.add("last-message");
 
 
@@ -104,108 +189,81 @@
         });
     })
 
+    // Odbiera, zapisuje oraz wyświetla listę aktualnie połączonych użytkowników
     socket.on('current_users', function(all_current_users) {
         const usersContainer = document.getElementById('users');
-        usersContainer.innerHTML = 'Użytkownicy online:';
+        usersContainer.innerHTML = '';
 
         const otherNicks = Object.keys(all_current_users);
 
+        // Tworzy i wyswietla element dla każdego połączonego użytkownika
         otherNicks.forEach(function(nickname) {
             const div = document.createElement('div');
             div.innerText = nickname;
             usersContainer.appendChild(div);
 
+            // Pobiera klucz w formacie tekstowym
             const pem = all_current_users[nickname];
+
+            // Konweruje klucz na obiekt i zapisuje
             peerPublicKeys[nickname] = forge.pki.publicKeyFromPem(pem);
         });
 
+        // Jeżeli nie ma innych użytkowników i nie mam jeszcze klucza AES pokoju, to generuje nowy
         if (otherNicks.length === 0 && roomAESKey === null) {
-            console.log("Jestem pierwszy. Generuję klucz AES...");
             roomAESKey = forge.random.getBytesSync(32);
-        } else {
-            console.log("Są inni. Czekam aż ktoś wyśle mi klucz AES...");
         }
 
     });
 
+    // Funkcja przyjmująca zdarzenie dołączenia nowego użytkownika
     socket.on('user_joined', function(new_user_data) {
-            console.log("Dołączył: " + new_user_data.nickname);
 
-            // Dodaj do listy
             const usersContainer = document.getElementById('users');
             const div = document.createElement('div');
             div.innerText = new_user_data.nickname;
             usersContainer.appendChild(div);
 
-            // Zapisz jego klucz RSA
+            // Konwersja z napisu w formacie PEM na obiekt
             const newKey = forge.pki.publicKeyFromPem(new_user_data.publicKey);
+
+            // Zapisanie w słowniku pod nickem użytkownika
             peerPublicKeys[new_user_data.nickname] = newKey;
 
-            // JEŚLI MAM KLUCZ AES -> Szyfruję go i wysyłam nowemu
+            // Jeśli użytkownik posiada klucz, to przekazuje go nowemu użytkownikowi
             if (roomAESKey) {
-                console.log("Mam klucz AES. Wysyłam go do: " + new_user_data.nickname);
                 try {
-                    // Szyfrowanie klucza AES (32 bajty) używając RSA nowego użytkownika
+                    // Szyfruje wspólny klucz AES za pomocą klucza publicznego nowego użytkownika
                     const encryptedAESKey = newKey.encrypt(roomAESKey);
 
-                    // Wysyłka tunelem
+                    // Wysyła zaszyfrowany klucz do użytkownika
                     socket.emit('send_key_to_user', {
                         encrypted_key: encryptedAESKey,
                         target_sid: new_user_data.sid
                     });
-                } catch(e) { console.error(e); }
+                } catch(e) {}
             }
         });
 
-    // --- 4. ODBIERANIE KLUCZA AES (Gdy wchodzę jako drugi) ---
+    // Odpowiada za przyjęcie klucza oraz deszyfrowanie klucza za pomocą klucza prywatnego
     socket.on('receive_key', function(data) {
-        console.log("Otrzymano zaszyfrowany klucz AES!");
         try {
-            // Odszyfruj MOIM kluczem prywatnym RSA
             const decryptedKey = myPrivateKey.decrypt(data.key);
             roomAESKey = decryptedKey;
-            console.log("Klucz AES zapisany! Mogę szyfrować.");
         } catch(e) {
-            console.error("Błąd deszyfrowania klucza AES:", e);
         }
     });
 
-    function sendMessage() {
-        const messageInput = document.getElementById("message-input");
-        const msg = messageInput.value;
-
-        if (!roomAESKey) {
-            return;
-        }
-
-        // A. Losujemy IV
-        var iv = forge.random.getBytesSync(16);
-
-        // B. Szyfrujemy wspólnym kluczem roomAESKey
-        var cipher = forge.cipher.createCipher('AES-CBC', roomAESKey);
-        cipher.start({iv: iv});
-        cipher.update(forge.util.createBuffer(msg, 'utf8'));
-        cipher.finish();
-
-        // C. Pakujemy
-        var encryptedHex = cipher.output.toHex();
-        var ivHex = forge.util.bytesToHex(iv);
-        var payload = ivHex + ';' + encryptedHex;
-
-        // D. Wysyłamy
-        socket.emit('message', payload, myNick);
-        console.log("Wysłano (Szyfrogram): " + payload);
-        messageInput.value = "";
-    }
-
+    // Obsługuje zdarzenie opuszczenia czatu przez użytkownika
     socket.on('user_left', function(nickname) {
-        console.log("Użytkownik opuścił czat: " + nickname);
-        // Usuń klucz RSA tego użytkownika
+
+        // Usuwa klucz użytkownika, który opuścił czat
         delete peerPublicKeys[nickname];
 
-        // Usuń go z listy wizualnej (szukamy diva z tym nickiem)
         const usersContainer = document.getElementById('users');
         const divs = usersContainer.getElementsByTagName('div');
+
+        // Usuwa użytkownika z listy
         for (let i = 0; i < divs.length; i++) {
             if (divs[i].innerText === nickname) {
                 usersContainer.removeChild(divs[i]);
@@ -214,24 +272,43 @@
         }
     });
 
-    function manualDisconnect() {
-        socket.disconnect(); // Manualne zerwanie połączenia
-    }
-
-    function manualReconnect() {
-        socket.connect(); // Manualne wznowienie (wywoła event 'connect' powyżej)
-    }
-
-
 </script>
-<h1 id="greeting"></h1>
+
+<!-- Inicjalizacja biblioteki emoji-picker i obsługa wstawiania emotikon do pola tekstowego -->
+<script type="module">
+    import { createPopup } from 'https://unpkg.com/@picmo/popup-picker@latest/dist/index.js?module';
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const trigger = document.querySelector('#emoji-trigger');
+        const input = document.querySelector('#message-input');
+
+        const picker = createPopup({}, {
+            referenceElement: trigger,
+            triggerElement: trigger,
+            position: 'top-start'
+        });
+
+        trigger.addEventListener('click', () => {
+            picker.toggle();
+        });
+
+        picker.addEventListener('emoji:select', (selection) => {
+            input.value += selection.emoji;
+            input.focus();
+        });
+    });
+</script>
+
 
 <div id="input-area">
     <input type="text" id="message-input" placeholder="Wpisz wiadomość..." autocomplete="off">
     <button onclick="sendMessage()">Wyślij</button>
+    <button id="emoji-trigger" style="font-size: 1.2rem; cursor: pointer; margin-right: 5px;">😀</button>
 </div>
 <center><h1>Czat</h1></center>
-<center><div id="users">Użytkownicy</div></center>
+<center><p>Użytkownicy online:</p> </center>
+<center><strong><div id="greeting"></div></strong></center>
+<center><div id="users"></div></center>
 <div id="history">
 
 

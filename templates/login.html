@@ -9,6 +9,7 @@
 <script type="text/javascript" charset="utf-8">
     const socket = io();
 
+    // Funkcja wysyłająca do serwera nickname użytkownika oraz wykonująca przekierowanie do czatu
     function login() {
         const nicknameInput = document.getElementById("nickname-input");
         const nickname = nicknameInput.value;

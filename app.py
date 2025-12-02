@@ -1,77 +1,91 @@
+import os
+
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
+from dotenv import load_dotenv
 
+load_dotenv()
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'secret!'
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'sekretny-klucz-domyslny-do-testow')
 socketio = SocketIO(app)
 
 users = {}
 history = []
 
+# Renderuje główny widok czatu po udanym zalogowaniu
 @app.route('/chat')
 def chat():
 
     return render_template('chat.html')
 
+# Renderuje stronę startową (formularz logowania)
 @app.route('/')
 def index():
 
     return render_template('login.html')
 
-
+# Obsługuje dołączenie nowego użytkownika: zapisuje go w pamięci, informuje innych i przesyła nowemu stan pokoju
 @socketio.on('join')
 def handle_join(nickname, publicKey):
-    users[request.sid] = {'nickname': nickname, 'publicKey': publicKey} # Tworzymy element słownika w tablicy users (dla każdego SID przypisujemy nickname i RES public key
+    # Zapis nowego użytkownika
+    users[request.sid] = {'nickname': nickname, 'publicKey': publicKey} # Dodaje nowego użytkownika do słownika 'users', mapując jego Session ID na dane (nick, klucz publiczny)
 
     print(f"Dołączył: {nickname} (ID: {request.sid})")
-    # 2. Powiadamiamy innych użytkowników o nowym (z SID, żeby mogli mu wysłać klucz)
+
+    # Serwer wysyła dane do innych użytkowników
     new_user_data = {
         'sid': request.sid,
         'nickname': nickname,
         'publicKey': publicKey
     }
     emit('user_joined', new_user_data, broadcast=True, include_self=False)
-    # 3. Przygotowujemy listę obecnych dla nowego użytkownika
+
+    # Serwer wysyła dane pozostałych użytkowników
     others = {
         data['nickname']: data['publicKey']
         for sid, data in users.items() if sid != request.sid
     }
 
-    # Rozesłanie informacji o pozostałych użytkownikach dla nowego użytkownika
     emit('current_users', others)
 
     emit('update_history', history)
 
-
+# Pełni rolę pośrednika. Przekazuje zaszyfrowany klucz AES od jednego klienta do konkretnego odbiorcy (Target SID).
 @socketio.on('send_key_to_user')
 def handle_send_key(data):
-    # Odbieramy od "Dawcy"
     target_sid = data['target_sid']
     encrypted_key = data['encrypted_key']
 
     print(f"[Serwer] Przekazuję zaszyfrowany klucz AES do użytkownika: {target_sid}")
 
-    # Przekazujemy do "Biorcy" (bezpośrednio do jego pokoju/sid)
     emit('receive_key', {'key': encrypted_key}, room=target_sid)
 
+# Odbiera zaszyfrowaną wiadomość wraz z wektorem inicjującym (IV) i nickiem użytkownika
 @socketio.on('message')
-def handle_message(message, current_nickname):
-    print(f"[Serwer] {current_nickname} wysłał wiadomość: {message}")
-    history.append({'nickname': current_nickname, 'message': message})
+def handle_message(message):
 
+    sender_nick = users[request.sid]['nickname']
+    print(f"[Serwer] {sender_nick} wysłał wiadomość: {message}")
+
+    # Dodaje wiadomość do historii
+    history.append({'nickname': sender_nick, 'message': message})
+
+    # Jeżeli historia jest > 10 to usuwa 1. element
+    if len(history) > 10:
+        history.pop(0)
+
+    # Rozsyła zaktualizowaną, pełną listę historii wiadomości do wszystkich podłączonych użytkowników
     emit("update_history", history, broadcast=True)
 
-
+# Obsługuje rozłączenie klienta (zamknięcie karty/utrata sieci). Usuwa go z listy i powiadamia resztę.
 @socketio.on('disconnect')
 def handle_disconnect():
     if request.sid in users:
         nickname = users[request.sid]['nickname']
         print(f"Rozłączył się: {nickname} (ID: {request.sid})")
 
-        # Usuwamy użytkownika z pamięci serwera
         del users[request.sid]
 
-        # Powiadamiamy innych, żeby usunęli go ze swojej listy GUI
         emit('user_left', nickname, broadcast=True)
 
 if __name__ == '__main__':
