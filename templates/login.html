@@ -21,8 +21,6 @@
         window.location.href = "/chat";
     }
 
-
-
 </script>
 <div id="stars"></div>
 <div id="stars2"></div>
@@ -35,5 +33,18 @@
         <button id="loginButton" onclick="login()">Połącz</button>
     </div>
 </div>
+
+<script>
+    const nicknameInput = document.getElementById('nicknameInput');
+    const loginButton = document.getElementById('loginButton');
+
+    nicknameInput.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter' || event.keyCode === 13) {
+
+            event.preventDefault();
+            login()
+        }
+    });
+</script>
 </body>
 </html>

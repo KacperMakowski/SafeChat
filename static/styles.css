@@ -1,3 +1,351 @@
+body::selection {
+  color: black;
+  background: white;
+}
+
+/* Styl czatu */
+#chat{
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    color:white;
+    text-transform: uppercase;
+    font-family: Inter,sans-serif;
+    justify-items: stretch;
+    width: 100%;
+    height: 80vh;
+}
+#messages{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-basis: 100%;
+    height: 100%;
+    width: 100%;
+}
+#mess-panel{
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    text-align: center;
+    align-items: center;
+}
+#messages #message-input {
+    display: flex;
+    width: 500px;
+    border-radius: 15px;
+    padding: 15px 10px;
+    border: 3px solid white;
+    background-color: white;
+    color: black;
+    font-family: 'Inter', sans-serif;
+    font-size: 20px;
+    font-weight: 400;
+    text-transform: none;
+    transition: all 0.2s ease;
+    height: auto;
+    min-height: 50px;
+    max-height: 200px;
+    resize: none;
+    overflow-y: hidden;
+    line-height: 1.5;
+}
+#messages #message-input::selection{
+    background-color: black;
+    color: white;
+}
+#messages textarea::placeholder{
+    color: rgba(255, 255, 255, 0.76);
+    text-transform: uppercase;
+    font-weight: bold;
+        transition: all 0.3s ease-in-out;
+
+}
+#messages #message-input:hover {
+    outline: none;
+    transition: all 0.3s ease-in-out;
+    transform: scale(1.05);
+}
+#messages #message-input:focus {
+    outline: 3px solid white;
+    background-color: white;
+    transition: all 0.3s ease-in-out;
+    transform: scale(1.05);
+    border-color: transparent;
+    outline-offset: 3px;
+    color: black;
+}
+
+#input-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    width: 100%;
+    margin-top: 20px;
+}
+.input-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 20px;
+    width: 100%;
+}
+#messages #message-input {
+    width: 500px;
+    border-radius: 15px;
+    padding: 15px 10px;
+    border: 3px solid white;
+    background-color: white;
+    color: black;
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    transition: all 0.2s ease;
+    height: auto;
+    min-height: 50px;
+    max-height: 200px;
+    resize: none;
+    overflow-y: hidden;
+    line-height: 1.5;
+}
+#emoji-trigger {
+    background: transparent;
+    border: none;
+    font-size: 2.5rem;
+    cursor: pointer;
+    padding: 0 0 10px 0;
+    transition: transform 0.2s;
+}
+#emoji-trigger:hover {
+    transform: scale(1.2);
+}
+#send-btn {
+    width: 213px;
+    background-color: transparent;
+    color: white;
+    border: 2px solid white;
+    padding: 10px 0;
+    font-size: 16px;
+    font-weight: bold;
+    text-transform: uppercase;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+#send-btn:hover {
+    background-color: white;
+    color: black;
+    transform: scale(1.02);
+}
+#history {
+    display: flex;
+    flex-direction: column;
+    width: 95%;
+    height: 90%;
+    overflow-y: auto;
+    padding: 20px;
+    list-style-type: none;
+    gap: 10px;
+    box-sizing: border-box;
+    overflow-x: hidden;
+}
+#history::-webkit-scrollbar {
+    width: 8px;
+}
+#history::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+}
+#history::-webkit-scrollbar-track {
+    background: transparent;
+}
+#history li {
+    padding: 10px 15px;
+    border-radius: 15px;
+    word-wrap: break-word;
+    max-width: 45%;
+    font-size: 16px;
+    line-height: 1.4;
+    position: relative;
+    text-shadow: none;
+    text-transform: none;
+    animation-fill-mode: both;
+}
+.my-msg {
+    align-self: flex-end;
+    background-color: white;
+    color: black!important;
+    text-align: right;
+    border-bottom-right-radius: 2px !important;
+    margin-left: auto;
+}
+.other-msg {
+    align-self: flex-start;
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    text-align: left;
+    border-bottom-left-radius: 2px !important;
+    margin-right: auto;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+#history .my-msg:last-child {
+    animation: slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+#history .other-msg:last-child {
+    animation: slideInLeft 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+#history li:last-child {
+    background-color: transparent;
+    color: white!important;
+    border: 2px solid white;
+}
+
+/* Sekcja z listą użytkowników */
+#users-panel {
+    position: fixed;
+    top: 150px;
+    right: 0;
+    width: 40px;
+    height: 50px;
+    background-color: white;
+    border-radius: 10px 0 0 10px;
+    box-shadow: -2px 0 5px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: flex-start;
+    overflow: hidden;
+    transition: all 0.5s ease-in-out;
+    z-index: 1000;
+    cursor: pointer;
+    font-family: Inter,sans-serif;
+}
+#users-panel::before {
+    content: "\25C0";
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    height: 50px;
+    font-size: 24px;
+    color: black;
+    font-weight: bold;
+    transition: transform 0.5s ease-in-out;
+}
+#users-panel:focus{
+    position: absolute;
+    top:150px;
+    right:0;
+    width:200px;
+    height:320px;
+    background-color:white;
+    transition: all 0.5s ease-in-out;
+}
+#users-panel:hover::before {
+    transform: rotate(180deg);
+}
+#users-panel:hover{
+    position: absolute;
+    top:150px;
+    right:0;
+    width:200px;
+    height:320px;
+    background-color:white;
+    transition: all 0.5s ease-in-out;
+}
+#user-items{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+#user-items p{
+    font-weight: bold;
+}
+#greeting{
+font-weight: bold;}
+/* Górna sekcja kontroli połączenia */
+#control-panel {
+    margin-bottom: 10px;
+    padding: 10px;
+    background-color: transparent;
+    display: flex;
+    align-items: center;
+    align-content: center;
+    flex-direction: column;
+    width: 100%;
+    gap:20px;
+}
+#connection-status{
+    color: white;
+    font-family: Inter, sans-serif;
+    font-size:20px;
+    text-transform: uppercase;
+    font-weight: bold;
+}
+#connection-status.status-reconnect{
+    background-image: linear-gradient(to right,
+    #ffffff 0%,
+    #d6d6d6 25%,
+    #323232 50%,
+    #d6d6d6 75%,
+    #ffffff 100%
+    );
+
+    /* KLUCZOWY FIX: Ustawiamy szerokość na 400% */
+    background-size: 400% 100%;
+    background-position: 0% 0;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    animation: reconnecting 4s linear infinite alternate-reverse;
+}
+#status-buttons{
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap:15px;
+    font-weight: bold;
+}
+.first-status-b{
+    background-color: white;
+    color: black;
+    padding: 8px 25px;
+    text-transform: uppercase;
+    font-weight: bold;
+    border-radius: 5px;
+    width:150px;
+    transition: all 0.3s ease-in-out;
+}
+.first-status-b:hover{
+    transition: all 0.3s ease-in-out;
+    transform: scale(1.1);
+}
+.first-status-b:focus{
+    transition: all 0.3s ease-in-out;
+    background-color: transparent;
+    color: white;
+    outline: 3px solid white;
+    outline-offset: 2px;
+}
+.second-status-b{
+    border-radius: 5px;
+    background-color: transparent;
+    color: white;
+    border: 2px solid white;
+    padding: 8px 25px;
+    text-transform: uppercase;
+    font-weight: bold;
+    width:150px;
+    transition: all 0.3s ease-in-out;
+}
+.second-status-b:hover{
+    transition: all 0.3s ease-in-out;
+    transform: scale(1.1);
+}
+/* Styl strony logowania */
 .loginScreen{
     width: 100%;
     height: 90vh;
@@ -7,7 +355,6 @@
     flex-direction: column;
     font-family: 'Inter', sans-serif;
 }
-
 .loginScreen h1{
     color: white;
     font-size: 6rem;
@@ -20,7 +367,6 @@
     margin:0;
     margin-bottom: 10px;
 }
-
 #inputArea{
     max-width: 500px;
     display: flex;
@@ -28,8 +374,8 @@
     align-items: center;
     gap:20px;
     margin-top:100px;
+    font-family: 'Inter', sans-serif;
 }
-
 #nicknameInput{
     display: flex;
     width: 100%;
@@ -39,49 +385,52 @@
     border: 3px solid white;
     background-color: transparent;
     color: white;
+    font-family: 'Inter', sans-serif;
+    font-size: 20px;
+    font-weight: 400;
+    transition: all 0.3s ease-in-out;
 }
-
 input::placeholder{
     color: rgba(255, 255, 255, 0.76);
     text-transform: uppercase;
     font-weight: bold;
+        transition: all 0.3s ease-in-out;
+
+}
+#nicknameInput:hover {
+    outline: none;
+    transition: all 0.3s ease-in-out;
+    transform: scale(1.05);
 }
 #nicknameInput:focus {
-    outline: none;
-
-    border-color: #6a6a6a;
+    outline: 3px solid white;
+    background-color: white;
+    transition: all 0.3s ease-in-out;
+    transform: scale(1.05);
+    border-color: transparent;
+    outline-offset: 3px;
+    color: black;
 }
-
 #loginButton{
     max-width: 200px;
     background: #ffffff;
     color: black;
     border-radius: 15px;
-    padding: 10px 50px;
+    padding: 8px 50px;
     text-transform: uppercase;
     font-weight: bold;
-    font-size: 1.1rem;
+    font-size: 20px;
+    transition: all 0.3s ease-in-out;
+    outline: 3px solid white;
+    outline-offset: 2px;
 }
-
-.my-msg{
-    text-align: left;
+#loginButton:hover{
+    transform: scale(1.05);
+    transition: all 0.3s ease-in-out;
+    color: white;
+    background-color: transparent;
 }
-.other-msg{
-    text-align: right;
-}
-
-#history li:last-child {
-    color: red;
-    font-weight: bold;
-}
-#control-panel {
-            margin-bottom: 10px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border-bottom: 2px solid #ddd;
-}
-.status-connected { color: green; font-weight: bold; }
-.status-disconnected { color: red; font-weight: bold; }
+/* Tło i animacje tła */
 body {
     /* Zmiana koloru: Ciemny grafit (#232323) na dole, czarny (#000) na górze */
     background: radial-gradient(ellipse at bottom, #191919 0%, #000000 100%);
@@ -90,7 +439,6 @@ body {
     margin: 0;
     position: relative;
 }
-
 #stars {
     /* FIX: Ustawienie na sztywno w tle, żeby nie psuło układu strony */
     position: fixed;
@@ -118,7 +466,6 @@ body {
 
     animation: fly 100s linear infinite;
 }
-
 #stars::after {
     content: " ";
     position: absolute;
@@ -173,8 +520,6 @@ body {
         50px 50px #FFF, 350px 450px #FFF, 750px 750px #FFF, 1150px 250px #FFF, 1550px 650px #FFF,
         1950px 950px #FFF, 250px 1350px #FFF, 650px 1750px #FFF, 1050px 1050px #FFF, 1450px 1450px #FFF;
 }
-
-/* DUŻE GWIAZDY (3px) - Poruszają się najszybciej (są "najbliżej") */
 #stars3 {
     width: 3px;
     height: 3px;
@@ -198,4 +543,29 @@ body {
 @keyframes fly {
     from { transform: translateY(0px); }
     to { transform: translateY(-2000px); }
+}
+@keyframes reconnecting {
+50% {
+        background-position: 100% 0;
+    }
+}
+@keyframes slideInRight {
+    0% {
+        opacity: 0;
+        transform: translateX(50px) scale(0.8);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+@keyframes slideInLeft {
+    0% {
+        opacity: 0;
+        transform: translateX(-50px) scale(0.8);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
 }

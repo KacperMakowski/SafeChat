@@ -5,15 +5,65 @@
     <title>SafeChat</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/node-forge@1.0.0/dist/forge.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@joeattardi/emoji-button@4.6.4/dist/index.min.js"></script>
     <link rel="stylesheet" href="../static/styles.css">
 </head>
 <body>
+<div id="stars"></div>
+<div id="stars2"></div>
+<div id="stars3"></div>
 <div id="control-panel">
-    Status: <span id="connection-status" class="status-ok">Połączono</span><br>
-    <button onclick="manualDisconnect()">Rozłącz</button>
-    <button onclick="manualReconnect()">Połącz</button>
-    <button onclick="quitChat()" style="color: red; font-weight: bold; margin-left: 10px;">Wyjdź</button>
+    <span id="connection-status" class="status-ok">Połączono</span>
+    <div id="status-buttons">
+        <button class="first-status-b" onclick="manualReconnect()">Połącz</button>
+        <button class="first-status-b" onclick="manualDisconnect()">Rozłącz</button>
+        <button class="second-status-b" onclick="quitChat()">Opuść czat</button>
+    </div>
+</div>
+<!-- Inicjalizacja biblioteki emoji-picker i obsługa wstawiania emotikon do pola tekstowego -->
+<script type="module">
+    import { createPopup } from 'https://unpkg.com/@picmo/popup-picker@latest/dist/index.js?module';
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const trigger = document.querySelector('#emoji-trigger');
+        const input = document.querySelector('#message-input');
+
+        const picker = createPopup({}, {
+            referenceElement: trigger,
+            triggerElement: trigger,
+            position: 'top-start'
+        });
+
+        trigger.addEventListener('click', () => {
+            picker.toggle();
+        });
+
+        picker.addEventListener('emoji:select', (selection) => {
+            input.value += selection.emoji;
+            input.focus();
+        });
+    });
+</script>
+
+<div id="chat">
+    <div id="messages">
+        <div id="mess-panel">
+            <div id="history"></div>
+            <div id="input-area">
+                <div class="input-row">
+                    <textarea id="message-input" rows="1" placeholder="Wpisz wiadomość..." autocomplete="off" maxlength="1024"></textarea>
+                    <button id="emoji-trigger">😀</button>
+                </div>
+                <button id="send-btn" onclick="sendMessage()">Wyślij</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="users-panel" tabindex="0">
+    <div id="user-items">
+        <p>Użytkownicy online:</p>
+        <div id="greeting"></div>
+        <div id="users"></div>
+    </div>
 </div>
 <script type="text/javascript" charset="utf-8">
     const socket = io();
@@ -60,16 +110,18 @@
             return;
         }
         else if (msg.trim() === "/list"){
-            const item = document.getElementById('users')
-            item.style.backgroundColor = "red";
+            document.getElementById("users-panel").focus()
+            messageInput.value = "";
             return
         }
         else if (msg.trim() === "/help"){
             alert("Witaj w bezpiecznym czacie:\n1. Wiadomość nie może byc dłuższa niż 1024 znaki\n2. Historia czatu zapisuje się do maksymalnie 10 wiadomości");
+            messageInput.value = "";
             return
         }
         else if (msg.length > 1024){
             alert("Wiadomość nie może być dłuższa niż 1024 znaki!");
+            messageInput.value = "";
             return;
         }
         if (!roomAESKey || msg.trim()==="") {
@@ -101,6 +153,8 @@
     function manualDisconnect() {
         const statusSpan = document.getElementById("connection-status");
         statusSpan.innerText = "Utracono połączenie";
+        statusSpan.classList.add("status-reconnect");
+        statusSpan.classList.remove("status-ok");
         socket.disconnect(); // Manualne zerwanie połączenia
     }
 
@@ -108,6 +162,8 @@
     function manualReconnect() {
         const statusSpan = document.getElementById("connection-status");
         statusSpan.innerText = "Połączono";
+        statusSpan.classList.remove("status-reconnect");
+        statusSpan.classList.add("status-ok");
         socket.connect(); // Manualne wznowienie (wywoła event 'connect' powyżej)
     }
 
@@ -176,7 +232,7 @@
                 } catch (e) { }
             }
 
-            item.innerText = msg_obj.nickname + ": " + displayText;
+            item.innerText = msg_obj.nickname + ": \n" + displayText;
 
             // Sprawdza, do kogo należy wiadomość i przypisuje odpowiednią klasę
             if (msg_obj.nickname === myNick) item.className = "my-msg";
@@ -274,44 +330,14 @@
 
 </script>
 
-<!-- Inicjalizacja biblioteki emoji-picker i obsługa wstawiania emotikon do pola tekstowego -->
-<script type="module">
-    import { createPopup } from 'https://unpkg.com/@picmo/popup-picker@latest/dist/index.js?module';
-
-    window.addEventListener('DOMContentLoaded', () => {
-        const trigger = document.querySelector('#emoji-trigger');
-        const input = document.querySelector('#message-input');
-
-        const picker = createPopup({}, {
-            referenceElement: trigger,
-            triggerElement: trigger,
-            position: 'top-start'
-        });
-
-        trigger.addEventListener('click', () => {
-            picker.toggle();
-        });
-
-        picker.addEventListener('emoji:select', (selection) => {
-            input.value += selection.emoji;
-            input.focus();
-        });
+<script>
+    const messageInput = document.getElementById('message-input');
+    messageInput.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter' || event.keyCode === 13) {
+            event.preventDefault();
+            sendMessage()
+        }
     });
 </script>
-
-
-<div id="input-area">
-    <input type="text" id="message-input" placeholder="Wpisz wiadomość..." autocomplete="off">
-    <button onclick="sendMessage()">Wyślij</button>
-    <button id="emoji-trigger" style="font-size: 1.2rem; cursor: pointer; margin-right: 5px;">😀</button>
-</div>
-<center><h1>Czat</h1></center>
-<center><p>Użytkownicy online:</p> </center>
-<center><strong><div id="greeting"></div></strong></center>
-<center><div id="users"></div></center>
-<div id="history">
-
-
-</div>
 </body>
 </html>
